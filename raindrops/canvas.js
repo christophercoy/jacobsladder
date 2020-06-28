@@ -3,10 +3,10 @@
 */
 var canvas = getTag("canvas");
 var context = canvas.getContext("2d");
-var gravity = 1.89; // How strong is the gravity?
-var friction = .89; // How much energy is lost per frame (over time)
-var circleArray = []; // The collection of balls we'll create. Starts empty
-var numberOfCircles = 200; // How many balls will we make?
+var gravity = 1.86; // How strong is the gravity?
+var friction = .76; // How much energy is lost per frame (over time)
+var dropArray = []; // The collection of drops we'll create. Starts empty
+var initialNumberofRaindrops = 10; // How many drops will we make?
 var variableHorizontalSpeed = 10; // How fast, left or right can the balls start out?
 var variableVerticalSpeed = 10; // How fast, up or down, can the balls start out?
 
@@ -52,13 +52,17 @@ addEventListener("click", init);
 // The circle object holds the x/y coordinates of the circle, the speeds sideways and up/down, the size and the color
 // You must create a new circle to put it into memory, call circle.draw() to put it on the screen
 // and you must call circle.update() to change its behavior frame by frame
-function Circle(x, y, dx, dy, radius, color) {
+function Raindrop(x, y, dx, dy, radius, color) {
     this.x = x;
     this.y = y;
     this.dx = dx;
     this.dy = dy;
     this.radius = radius;
     this.color = color;
+    this.hasHitBottom = false;
+    this.removeMe = false;
+    this.isSmallDrop = false;
+    this.timesBounced = 0;
 
     // Put the object on the canvas visibly using the x,y etc. values.
     this.draw = function() {
@@ -72,7 +76,7 @@ function Circle(x, y, dx, dy, radius, color) {
 
     // Alter the physics of the circle/ball according to our variables. 
     this.update = function() {
-        if(this.radius > 0) {
+        if(this.radius > 0 && !this.removeMe) {
             
             if(this.x + this.radius + this.dx > canvas.width || 
                 this.x - this.radius <= 0 || this.x <= 0) {
@@ -86,34 +90,61 @@ function Circle(x, y, dx, dy, radius, color) {
             // let gravity change the speed over time, postive and negative.
             if(this.y + this.radius + this.dy > canvas.height || this.y - this.radius <= 0) {
                 this.dy = -this.dy * friction;
+                this.timesBounced++;
+                if(!this.hasHitBottom && !this.isSmallDrop) {
+                    this.hasHitBottom = true;
+                    this.removeMe = true;
+                    let newRadius = 1.5;
+                    for(var i=0; i < 3; i++) {
+                        dropArray.push(getRandomizedSmallDrop(newRadius, this.x, this.y, this.color));
+                    }
+                    this.radius = 0;
+                }
             } else {
                 this.dy += gravity;
             }
             
             this.x += this.dx;
-            this.y += this.dy;        
+            this.y += this.dy;
+
+            if(this.timesBounced >= 15) {
+                this.radius = 0;
+                this.removeMe = true;
+            }
         }
         this.draw();
     }
 }
 
-function createCircles() {
-    console.log("circles", numberOfCircles);
-    circleArray = [];
-    for (var index = 0; index < numberOfCircles; index++) {
-        circleArray.push(getRandomizedCircle());
+function createRaindrops(numberOfRaindrops) {
+    console.log("circles", numberOfRaindrops);
+    //dropArray = [];
+    for (var index = 0; index < numberOfRaindrops; index++) {
+        dropArray.push(getRandomizedDrop());
     }
 }
 
-function getRandomizedCircle() {
-    var radius = randomIntFromRange(10, 30);
-    var x = randomIntFromRange(radius + 30, canvas.width - radius);
-    var y = randomIntFromRange(radius + 50, canvas.height - radius);
+function getRandomizedSmallDrop(newDropSize, x, y, color) {
+    var radius = newDropSize;
     var dx = randomIntFromRange(-variableHorizontalSpeed, variableHorizontalSpeed);
     var dy = randomIntFromRange(-variableVerticalSpeed, variableVerticalSpeed);
+    var color = color;
+    var drop = new Raindrop(x, canvas.height + radius - 20, dx, dy, radius, color);
+    drop.hasHitBottom = false;
+    drop.removeMe = false;
+    drop.isSmallDrop = true;
+    return drop;
+}
+
+function getRandomizedDrop() {
+    var radius = 3;
+    var x = randomIntFromRange(radius + 30, canvas.width - radius);
+    var y = radius + 5;
+    var dx = randomIntFromRange(0, 0);
+    var dy = randomIntFromRange(-variableVerticalSpeed, variableVerticalSpeed);
     var color = randomColor();
-    var circle = new Circle(x, y, dx, dy, radius, color);
-    return circle;
+    var drop = new Raindrop(x, y, dx, dy, radius, color);
+    return drop;
 }
 
 /*
@@ -142,13 +173,17 @@ function animate() {
     requestAnimationFrame(animate);
     context.clearRect(0, 0, canvas.width, canvas.height);
 
-    for(var i=0; i < circleArray.length; i++) {
-        circleArray[i].update();
+    console.log("Array length " + dropArray.length);
+
+    for(var i=0; i < dropArray.length; i++) {
+        dropArray[i].update();
     }
+
+    createRaindrops(5);
 }
 
 function init() {
     canvas.height = window.innerHeight - 10;
     canvas.width = window.innerWidth-10;
-    createCircles();
+    createRaindrops(initialNumberofRaindrops);
 }
